@@ -1,0 +1,45 @@
+# Local reference материалы (не часть проекта)
+reference/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Node.js / Frontend
+node_modules/
+dist/
+build/
+coverage/
+.next/
+out/
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local DB volumes / data
+.data/
+volumes/
+postgres-data/
+mongo-data/
+redis-data/
+qdrant_storage/
+neo4j-data/
