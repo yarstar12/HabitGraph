@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import User
 from app.db.postgres import get_db
+from app.db.neo4j import upsert_user
 
 router = APIRouter()
 
@@ -24,10 +25,13 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    try:
+        upsert_user(user_id=user.id, username=user.username)
+    except Exception:
+        pass
     return user
 
 
 @router.get("", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)) -> list[User]:
     return list(db.scalars(select(User).order_by(User.id)))
-

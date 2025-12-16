@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_user_id
 from app.db.models import Habit
 from app.db.postgres import get_db
+from app.db.neo4j import link_user_habit
 
 router = APIRouter()
 
@@ -30,6 +31,10 @@ def create_habit(
     db.add(habit)
     db.commit()
     db.refresh(habit)
+    try:
+        link_user_habit(user_id=user_id, habit_id=habit.id, title=habit.title)
+    except Exception:
+        pass
     return habit
 
 
@@ -39,4 +44,3 @@ def list_habits(
     db: Session = Depends(get_db),
 ) -> list[Habit]:
     return list(db.scalars(select(Habit).where(Habit.user_id == user_id).order_by(Habit.id)))
-

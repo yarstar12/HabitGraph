@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_user_id
 from app.db.models import Goal
 from app.db.postgres import get_db
+from app.db.neo4j import link_user_goal
 
 router = APIRouter()
 
@@ -30,6 +31,10 @@ def create_goal(
     db.add(goal)
     db.commit()
     db.refresh(goal)
+    try:
+        link_user_goal(user_id=user_id, goal_id=goal.id, title=goal.title)
+    except Exception:
+        pass
     return goal
 
 
@@ -39,4 +44,3 @@ def list_goals(
     db: Session = Depends(get_db),
 ) -> list[Goal]:
     return list(db.scalars(select(Goal).where(Goal.user_id == user_id).order_by(Goal.id)))
-
