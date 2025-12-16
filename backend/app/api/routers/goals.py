@@ -7,6 +7,7 @@ from app.api.deps import get_user_id
 from app.db.models import Goal
 from app.db.postgres import get_db
 from app.db.neo4j import link_user_goal
+from app.db.rabbitmq import publish_event
 
 router = APIRouter()
 
@@ -33,6 +34,10 @@ def create_goal(
     db.refresh(goal)
     try:
         link_user_goal(user_id=user_id, goal_id=goal.id, title=goal.title)
+    except Exception:
+        pass
+    try:
+        publish_event("user.goals.changed", {"user_id": user_id, "goal_id": goal.id})
     except Exception:
         pass
     return goal

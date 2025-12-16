@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_user_id
 from app.db.mongo import get_diary_collection
 from app.db.qdrant import upsert_diary_entry, vector_search_diary
+from app.db.rabbitmq import publish_event
 
 router = APIRouter()
 
@@ -52,6 +53,11 @@ def create_entry(payload: DiaryCreate, user_id: int = Depends(get_user_id)) -> D
             mood=payload.mood,
             created_at=doc["created_at"],
         )
+    except Exception:
+        pass
+
+    try:
+        publish_event("diary.entry.created", {"user_id": user_id, "entry_id": str(doc["_id"])})
     except Exception:
         pass
 

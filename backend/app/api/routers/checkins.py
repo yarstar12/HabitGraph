@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_user_id
 from app.db.models import Checkin, Habit
 from app.db.postgres import get_db
+from app.db.rabbitmq import publish_event
 
 router = APIRouter()
 
@@ -46,5 +47,11 @@ def create_checkin(
         raise HTTPException(status_code=409, detail="Check-in already exists for this day")
 
     db.refresh(checkin)
+    try:
+        publish_event(
+            "habits.checkin.recorded",
+            {"user_id": user_id, "habit_id": payload.habit_id, "date": date.isoformat()},
+        )
+    except Exception:
+        pass
     return checkin
-

@@ -7,6 +7,7 @@ from app.api.deps import get_user_id
 from app.db.models import Habit
 from app.db.postgres import get_db
 from app.db.neo4j import link_user_habit
+from app.db.rabbitmq import publish_event
 
 router = APIRouter()
 
@@ -33,6 +34,10 @@ def create_habit(
     db.refresh(habit)
     try:
         link_user_habit(user_id=user_id, habit_id=habit.id, title=habit.title)
+    except Exception:
+        pass
+    try:
+        publish_event("user.habits.changed", {"user_id": user_id, "habit_id": habit.id})
     except Exception:
         pass
     return habit
