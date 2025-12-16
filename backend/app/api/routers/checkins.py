@@ -10,6 +10,7 @@ from app.api.deps import get_user_id
 from app.db.models import Checkin, Habit
 from app.db.postgres import get_db
 from app.db.rabbitmq import publish_event
+from app.db.redis import compute_and_store_streak
 
 router = APIRouter()
 
@@ -47,6 +48,10 @@ def create_checkin(
         raise HTTPException(status_code=409, detail="Check-in already exists for this day")
 
     db.refresh(checkin)
+    try:
+        compute_and_store_streak(db=db, user_id=user_id, habit_id=payload.habit_id, end_date=date)
+    except Exception:
+        pass
     try:
         publish_event(
             "habits.checkin.recorded",

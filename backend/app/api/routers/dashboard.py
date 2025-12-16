@@ -15,6 +15,7 @@ router = APIRouter()
 class HabitStats(BaseModel):
     habit_id: int
     title: str
+    streak: int
     total_checkins: int
     last_checkin: dt.date | None
 
@@ -45,16 +46,18 @@ def get_dashboard(
     ).all()
 
     by_habit: dict[int, tuple[int, dt.date | None]] = {r[0]: (int(r[1]), r[2]) for r in rows}
+    from app.db.redis import get_streak
+
     return DashboardOut(
         user_id=user_id,
         habits=[
             HabitStats(
                 habit_id=h.id,
                 title=h.title,
+                streak=get_streak(db=db, user_id=user_id, habit_id=h.id),
                 total_checkins=by_habit.get(h.id, (0, None))[0],
                 last_checkin=by_habit.get(h.id, (0, None))[1],
             )
             for h in habits
         ],
     )
-
