@@ -50,6 +50,13 @@ def _add_checkins(db, user_id: int, habit_id: int, dates: list[dt.date]) -> None
 
 
 def main() -> None:
+    import os
+
+    if os.getenv("SEED_DEMO") != "1":
+        print("Демо-данные не загружаются.")
+        print("Чтобы загрузить демо-данные, запусти с переменной окружения SEED_DEMO=1.")
+        return
+
     print("Загрузка демо-данных HabitGraph…")
     init_db()
 
