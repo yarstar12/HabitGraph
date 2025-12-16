@@ -29,9 +29,10 @@ def _ensure_collection() -> None:
 
     client = get_qdrant_client()
     existing = {c.name for c in client.get_collections().collections}
-    if settings.qdrant_collection not in existing:
+    collection = settings.effective_qdrant_collection()
+    if collection not in existing:
         client.create_collection(
-            collection_name=settings.qdrant_collection,
+            collection_name=collection,
             vectors_config=qm.VectorParams(size=VECTOR_SIZE, distance=qm.Distance.COSINE),
         )
     _collection_ready = True
@@ -77,7 +78,7 @@ def upsert_diary_entry(
         "created_at": created_at.isoformat(),
     }
     client.upsert(
-        collection_name=settings.qdrant_collection,
+        collection_name=settings.effective_qdrant_collection(),
         points=[
             qm.PointStruct(
                 id=_point_id(entry_id),
@@ -95,7 +96,7 @@ def vector_search_diary(user_id: int, text: str, limit: int = 5) -> list[dict]:
 
     query_vector = embed_text(text)
     hits = client.search(
-        collection_name=settings.qdrant_collection,
+        collection_name=settings.effective_qdrant_collection(),
         query_vector=query_vector,
         limit=limit,
         query_filter=qm.Filter(

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     allow_origins: str = "http://localhost:5173"
 
+    student_name: str | None = None
     db_host: str = "localhost"
 
     postgres_host: str | None = None
@@ -44,11 +45,40 @@ class Settings(BaseSettings):
     rabbitmq_password: str = "guest"
     rabbitmq_url: str | None = None
 
+    def _slug(self, value: str) -> str:
+        out = []
+        for ch in value.strip():
+            if ch.isalnum():
+                out.append(ch.lower())
+            else:
+                out.append("_")
+        s = "".join(out)
+        while "__" in s:
+            s = s.replace("__", "_")
+        return s.strip("_")
+
+    def default_student_db_name(self) -> str | None:
+        if not self.student_name:
+            return None
+        return f"appdb_habitgraph_{self._slug(self.student_name)}"
+
+    def effective_postgres_db(self) -> str:
+        if self.postgres_db != "habitgraph":
+            return self.postgres_db
+        derived = self.default_student_db_name()
+        return derived or self.postgres_db
+
+    def effective_mongo_db(self) -> str:
+        if self.mongo_db != "habitgraph":
+            return self.mongo_db
+        derived = self.default_student_db_name()
+        return derived or self.mongo_db
+
     def postgres_sqlalchemy_dsn(self) -> str:
         if self.postgres_dsn:
             return self.postgres_dsn
         host = self.postgres_host or self.db_host
-        return f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}@{host}:{self.postgres_port}/{self.postgres_db}"
+        return f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}@{host}:{self.postgres_port}/{self.effective_postgres_db()}"
 
     def mongo_url(self) -> str:
         if self.mongo_uri:
@@ -72,6 +102,12 @@ class Settings(BaseSettings):
             return host_port, 6333
         host = self.qdrant_host or self.db_host
         return host, self.qdrant_port
+
+    def effective_qdrant_collection(self) -> str:
+        if self.qdrant_collection != "habitgraph_diary_entries":
+            return self.qdrant_collection
+        derived = self.default_student_db_name()
+        return derived or self.qdrant_collection
 
     def neo4j_bolt_uri(self) -> str:
         if self.neo4j_uri:

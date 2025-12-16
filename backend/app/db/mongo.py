@@ -14,5 +14,5 @@ def get_mongo_client() -> MongoClient:
 
 def get_diary_collection():
     client = get_mongo_client()
-    db = client[settings.mongo_db]
+    db = client[settings.effective_mongo_db()]
     return db["diary_entries"]
