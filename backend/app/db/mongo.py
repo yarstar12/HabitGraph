@@ -8,7 +8,7 @@ _client: MongoClient | None = None
 def get_mongo_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(settings.mongo_uri)
+        _client = MongoClient(settings.mongo_url())
     return _client
 
 
@@ -16,4 +16,3 @@ def get_diary_collection():
     client = get_mongo_client()
     db = client[settings.mongo_db]
     return db["diary_entries"]
-

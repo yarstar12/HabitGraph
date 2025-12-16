@@ -10,12 +10,13 @@ _channel: pika.adapters.blocking_connection.BlockingChannel | None = None
 
 def _get_channel():
     global _connection, _channel
-    if not settings.rabbitmq_url:
+    amqp_url = settings.rabbitmq_amqp_url()
+    if not amqp_url:
         return None
     if _channel and _channel.is_open:
         return _channel
 
-    params = pika.URLParameters(settings.rabbitmq_url)
+    params = pika.URLParameters(amqp_url)
     _connection = pika.BlockingConnection(params)
     _channel = _connection.channel()
     _channel.exchange_declare(exchange="habitgraph.events", exchange_type="topic", durable=True)
@@ -32,4 +33,3 @@ def publish_event(routing_key: str, payload: dict) -> None:
         body=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         properties=pika.BasicProperties(content_type="application/json", delivery_mode=2),
     )
-

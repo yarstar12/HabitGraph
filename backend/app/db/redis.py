@@ -13,7 +13,7 @@ _client: redis.Redis | None = None
 def get_redis() -> redis.Redis:
     global _client
     if _client is None:
-        _client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        _client = redis.Redis.from_url(settings.redis_connection_url(), decode_responses=True)
     return _client
 
 
@@ -64,4 +64,3 @@ def get_streak(db: Session, user_id: int, habit_id: int) -> int:
         return streak
     except Exception:
         return 0
-

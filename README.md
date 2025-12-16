@@ -8,7 +8,7 @@ HabitGraph — трекер привычек/здоровья с дневник�
 
 ```bash
 # (опционально) настроить порты/пароли
-cp .env.example .env
+cp infra/.env.example .env
 
 # поднять все сервисы (DBs + backend + frontend)
 docker compose up -d --build

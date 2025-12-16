@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.settings import settings
 from app.db.models import Base
 
-engine = create_engine(settings.postgres_dsn, pool_pre_ping=True)
+engine = create_engine(settings.postgres_sqlalchemy_dsn(), pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
@@ -20,4 +20,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-
