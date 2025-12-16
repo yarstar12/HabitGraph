@@ -17,16 +17,11 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
+      - postgres
+      - mongo
+      - redis
+      - qdrant
+      - neo4j
 
   seed:
     build:
@@ -42,16 +37,11 @@ services:
       NEO4J_USER: ${NEO4J_USER:-neo4j}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-habitgraph}
     depends_on:
-      postgres:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      neo4j:
-        condition: service_healthy
+      - postgres
+      - mongo
+      - redis
+      - qdrant
+      - neo4j
     profiles: ["tools"]
 
   frontend:
@@ -111,11 +101,6 @@ services:
       - "${QDRANT_PORT:-6333}:6333"
     volumes:
       - qdrant-storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/readyz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
 
   neo4j:
     image: neo4j:5
@@ -129,11 +114,6 @@ services:
       - "${NEO4J_BOLT_PORT:-7687}:7687"
     volumes:
       - neo4j-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
 
   rabbitmq:
     profiles: ["extras"]
