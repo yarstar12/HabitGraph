@@ -2,6 +2,33 @@
 
 HabitGraph — трекер привычек/здоровья с дневником, рекомендациями и социальным графом. Пользователь создаёт привычки и цели, отмечает выполнение (check-in) и ведёт заметки. Система считает прогресс и streak, делает семантический поиск по дневнику и рекомендует людей с похожими целями через граф.
 
+## Быстрый запуск (Docker)
+
+Требуется: Docker + Docker Compose.
+
+```bash
+# (опционально) настроить порты/пароли
+cp .env.example .env
+
+# поднять все сервисы (DBs + backend + frontend)
+docker compose up -d --build
+
+# наполнить демо‑данными (3 пользователя, привычки/цели, дневник, граф)
+docker compose --profile tools run --rm seed
+```
+
+- UI: `http://localhost:5173`
+- API docs (Swagger): `http://localhost:8000/docs`
+- Demo user: передавайте заголовок `X-User-Id` (по умолчанию `1`)
+
+### RabbitMQ (опционально)
+
+RabbitMQ подключается как “extras” профиль:
+
+```bash
+docker compose --profile extras up -d rabbitmq
+```
+
 ## Сценарии пользователя
 
 - Зарегистрироваться/войти, настроить профиль и цели.
@@ -92,3 +119,13 @@ RabbitMQ — шина событий между API и воркерами для
 - Qdrant: загрузка эмбеддингов для записей дневника и простой semantic search (похожие записи).
 - Neo4j: базовый соц-граф (добавить друга/подписку) и рекомендация “люди с общими целями”.
 - RabbitMQ: зафиксировать события/очереди для воркеров (реализация воркеров — следующий этап).
+
+## Минимальные API endpoints
+
+- `POST /habits`, `GET /habits`
+- `POST /goals`, `GET /goals`
+- `POST /checkins`
+- `GET /dashboard`
+- `POST /diary`, `GET /diary`
+- `GET /diary/similar`
+- `GET /social/recommendations` (+ `POST /social/friends`)
