@@ -37,7 +37,7 @@ def create_checkin(
 
     habit = db.scalar(select(Habit).where(Habit.id == payload.habit_id, Habit.user_id == user_id))
     if habit is None:
-        raise HTTPException(status_code=404, detail="Habit not found")
+        raise HTTPException(status_code=404, detail="Привычка не найдена")
 
     checkin = Checkin(user_id=user_id, habit_id=payload.habit_id, date=date)
     db.add(checkin)
@@ -45,7 +45,7 @@ def create_checkin(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Check-in already exists for this day")
+        raise HTTPException(status_code=409, detail="Отметка за этот день уже существует")
 
     db.refresh(checkin)
     try:

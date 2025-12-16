@@ -58,20 +58,20 @@ export default function DashboardPage() {
 
   return (
     <div className="stack">
-      <h1>Dashboard</h1>
+      <h1>Дашборд</h1>
 
       <div className="card">
         <div className="row">
           <input
             value={newHabitTitle}
             onChange={(e) => setNewHabitTitle(e.target.value)}
-            placeholder="New habit title"
+            placeholder="Название новой привычки"
           />
           <button onClick={onCreateHabit} disabled={loading}>
-            Add habit
+            Добавить
           </button>
         </div>
-        <div className="muted">Total streak sum: {totalStreak}</div>
+        <div className="muted">Сумма серий (streak): {totalStreak}</div>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -81,24 +81,23 @@ export default function DashboardPage() {
           <div key={h.habit_id} className="card">
             <div className="title">{h.title}</div>
             <div className="muted">
-              streak: <b>{h.streak}</b> · check-ins: <b>{h.total_checkins}</b>
+              серия: <b>{h.streak}</b> · отметок: <b>{h.total_checkins}</b>
             </div>
-            <div className="muted">last: {h.last_checkin ?? "—"}</div>
+            <div className="muted">последняя: {h.last_checkin ?? "—"}</div>
             <button onClick={() => onCheckin(h.habit_id)} disabled={loading}>
-              Check-in today
+              Отметить сегодня
             </button>
           </div>
         ))}
         {!habits.length && !loading && (
-          <div className="card muted">No habits yet. Create one above.</div>
+          <div className="card muted">Пока нет привычек. Создай первую выше.</div>
         )}
       </div>
 
       <details className="card">
-        <summary>Raw habits</summary>
+        <summary>Сырые данные (habits)</summary>
         <pre className="pre">{JSON.stringify(allHabits, null, 2)}</pre>
       </details>
     </div>
   );
 }
-

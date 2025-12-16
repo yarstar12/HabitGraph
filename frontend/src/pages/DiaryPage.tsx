@@ -66,38 +66,38 @@ export default function DiaryPage() {
 
   return (
     <div className="stack">
-      <h1>Diary</h1>
+      <h1>Дневник</h1>
 
       <form className="card stack" onSubmit={onCreate}>
         <textarea
           rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Write a diary entry..."
+          placeholder="Напиши запись в дневник..."
         />
         <div className="row">
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tags: sleep,steps" />
-          <input value={mood} onChange={(e) => setMood(e.target.value)} placeholder="mood (optional)" />
+          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="теги: сон,шаги" />
+          <input value={mood} onChange={(e) => setMood(e.target.value)} placeholder="настроение (опц.)" />
           <button disabled={loading} type="submit">
-            Save
+            Сохранить
           </button>
         </div>
       </form>
 
       <div className="card">
         <div className="row">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search similar by text" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск похожих по смыслу" />
           <button onClick={onSearch} disabled={loading}>
-            Search
+            Найти
           </button>
         </div>
         {similar.length > 0 && (
           <div className="stack">
             {similar.map((s) => (
               <div key={s.entry.id} className="card">
-                <div className="muted">score: {s.score.toFixed(4)}</div>
+                <div className="muted">релевантность: {s.score.toFixed(4)}</div>
                 <div className="title">{s.entry.text}</div>
-                <div className="muted">tags: {(s.entry.tags ?? []).join(", ")}</div>
+                <div className="muted">теги: {(s.entry.tags ?? []).join(", ")}</div>
               </div>
             ))}
           </div>
@@ -110,14 +110,13 @@ export default function DiaryPage() {
         {items.map((it) => (
           <div className="card" key={it.id}>
             <div className="title">{it.text}</div>
-            <div className="muted">tags: {(it.tags ?? []).join(", ") || "—"}</div>
-            <div className="muted">mood: {it.mood ?? "—"}</div>
-            <div className="muted">created: {it.created_at}</div>
+            <div className="muted">теги: {(it.tags ?? []).join(", ") || "—"}</div>
+            <div className="muted">настроение: {it.mood ?? "—"}</div>
+            <div className="muted">создано: {it.created_at}</div>
           </div>
         ))}
-        {!items.length && !loading && <div className="card muted">No diary entries yet.</div>}
+        {!items.length && !loading && <div className="card muted">Пока нет записей.</div>}
       </div>
     </div>
   );
 }
-

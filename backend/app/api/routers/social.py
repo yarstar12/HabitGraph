@@ -22,7 +22,7 @@ class RecommendationOut(BaseModel):
 @router.post("/friends")
 def add_friendship(payload: AddFriendIn, user_id: int = Depends(get_user_id)) -> dict:
     if payload.friend_user_id == user_id:
-        raise HTTPException(status_code=400, detail="Cannot friend yourself")
+        raise HTTPException(status_code=400, detail="Нельзя добавить в друзья самого себя")
     add_friend(user_id=user_id, friend_user_id=payload.friend_user_id)
     return {"status": "ok"}
 
@@ -30,4 +30,3 @@ def add_friendship(payload: AddFriendIn, user_id: int = Depends(get_user_id)) ->
 @router.get("/recommendations", response_model=list[RecommendationOut])
 def get_recommendations(user_id: int = Depends(get_user_id), limit: int = 10) -> list[dict]:
     return recommend_users(user_id=user_id, limit=min(max(1, limit), 50))
-

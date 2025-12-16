@@ -41,24 +41,24 @@ export default function SocialPage() {
 
   return (
     <div className="stack">
-      <h1>Social</h1>
+      <h1>Соцграф</h1>
 
       <div className="card">
         <div className="row">
           <input
             value={friendId}
             onChange={(e) => setFriendId(e.target.value)}
-            placeholder="Friend user_id (e.g. 2)"
+            placeholder="user_id друга (например, 2)"
           />
           <button onClick={onAddFriend} disabled={loading}>
-            Add friend
+            Добавить в друзья
           </button>
           <button onClick={refresh} disabled={loading}>
-            Refresh
+            Обновить
           </button>
         </div>
         <div className="muted">
-          Recommendations are based on shared goals/habits in Neo4j and exclude current friends.
+          Рекомендации основаны на общих целях/привычках в Neo4j и исключают текущих друзей.
         </div>
       </div>
 
@@ -68,17 +68,16 @@ export default function SocialPage() {
         {items.map((r) => (
           <div key={r.user_id} className="card">
             <div className="title">
-              user {r.user_id} {r.username ? `(${r.username})` : ""}
+              пользователь {r.user_id} {r.username ? `(${r.username})` : ""}
             </div>
             <div className="muted">
-              shared_goals: <b>{r.shared_goals}</b> · shared_habits: <b>{r.shared_habits}</b>
+              общие цели: <b>{r.shared_goals}</b> · общие привычки: <b>{r.shared_habits}</b>
             </div>
-            <div className="muted">score: {r.score}</div>
+            <div className="muted">оценка: {r.score}</div>
           </div>
         ))}
-        {!items.length && !loading && <div className="card muted">No recommendations yet.</div>}
+        {!items.length && !loading && <div className="card muted">Пока нет рекомендаций.</div>}
       </div>
     </div>
   );
 }
-

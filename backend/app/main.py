@@ -15,7 +15,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="HabitGraph API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="HabitGraph API (учебный проект)", version="0.1.0", lifespan=lifespan)
 
     origins = [origin.strip() for origin in settings.allow_origins.split(",") if origin.strip()]
     app.add_middleware(

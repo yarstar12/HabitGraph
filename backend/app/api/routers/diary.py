@@ -120,13 +120,13 @@ def similar_entries(
     limit: int = 5,
 ) -> list[SimilarOut]:
     if not text and not entry_id:
-        raise HTTPException(status_code=400, detail="Provide text or entry_id")
+        raise HTTPException(status_code=400, detail="Нужно передать text или entry_id")
 
     query_text = text
     if entry_id:
         doc = _get_entry_by_id(entry_id)
         if not doc or doc.get("user_id") != user_id:
-            raise HTTPException(status_code=404, detail="Diary entry not found")
+            raise HTTPException(status_code=404, detail="Запись дневника не найдена")
         query_text = doc.get("text") or ""
 
     results = vector_search_diary(user_id=user_id, text=query_text or "", limit=min(max(1, limit), 20))

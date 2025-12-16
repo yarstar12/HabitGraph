@@ -9,9 +9,9 @@ export default function App() {
       <header className="header">
         <div className="brand">HabitGraph</div>
         <nav className="nav">
-          <Link to="/">Dashboard</Link>
-          <Link to="/diary">Diary</Link>
-          <Link to="/social">Social</Link>
+          <Link to="/">Дашборд</Link>
+          <Link to="/diary">Дневник</Link>
+          <Link to="/social">Соцграф</Link>
         </nav>
       </header>
 
@@ -25,4 +25,3 @@ export default function App() {
     </div>
   );
 }
-

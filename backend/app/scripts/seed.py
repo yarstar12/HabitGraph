@@ -50,8 +50,7 @@ def _add_checkins(db, user_id: int, habit_id: int, dates: list[dt.date]) -> None
 
 
 def main() -> None:
-    print("Seeding HabitGraph demo data…")
-    print(f"POSTGRES_DSN={settings.postgres_dsn}")
+    print("Загрузка демо-данных HabitGraph…")
     init_db()
 
     db = SessionLocal()
@@ -174,8 +173,8 @@ def main() -> None:
             except Exception:
                 pass
 
-        print("Seed completed.")
-        print("Try:")
+        print("Готово.")
+        print("Проверь:")
         print("  - GET  /dashboard   (X-User-Id: 1)")
         print("  - GET  /diary/similar?text=steps")
         print("  - GET  /social/recommendations")
@@ -185,4 +184,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
