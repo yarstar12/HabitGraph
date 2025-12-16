@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, DashboardHabit, Habit } from "../api";
+import { api, DashboardHabit, Habit, Overview } from "../api";
+import { useUser } from "../context/UserContext";
 
 export default function DashboardPage() {
+  const { userId } = useUser();
   const [habits, setHabits] = useState<DashboardHabit[]>([]);
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [newHabitTitle, setNewHabitTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -14,9 +17,10 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const dash = await api.dashboard.get();
+      const dash = await api.dashboard.get(userId);
       setHabits(dash.habits);
-      setAllHabits(await api.habits.list());
+      setAllHabits(await api.habits.list(userId));
+      setOverview(await api.overview.get(userId));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -26,14 +30,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [userId]);
 
   async function onCreateHabit() {
     if (!newHabitTitle.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      await api.habits.create(newHabitTitle.trim());
+      await api.habits.create(userId, newHabitTitle.trim());
       setNewHabitTitle("");
       await refresh();
     } catch (e) {
@@ -47,7 +51,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      await api.checkins.create(habitId);
+      await api.checkins.create(userId, habitId);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -58,7 +62,30 @@ export default function DashboardPage() {
 
   return (
     <div className="stack">
-      <h1>Дашборд</h1>
+      <div className="hero">
+        <div>
+          <p className="eyebrow">Твой путь</p>
+          <h1>Дашборд HabitGraph</h1>
+          <p className="muted">
+            Отслеживай привычки, streak, дневник и рекомендации. Заполняй данные — сервис подхватит всё автоматически.
+          </p>
+        </div>
+        <div className="hero-actions">
+          <div className="chip accent">user_id: {userId}</div>
+          <div className="muted tiny">Меняется вверху справа</div>
+        </div>
+      </div>
+
+      {overview && (
+        <div className="stats-grid">
+          <StatCard label="Привычки" value={overview.habits_count} hint="Сколько привычек у пользователя" />
+          <StatCard label="Цели" value={overview.goals_count} hint="Цели для ориентира" />
+          <StatCard label="Записей в дневнике" value={overview.diary_entries} hint="Для семантического поиска" />
+          <StatCard label="Отметок за 7 дней" value={overview.checkins_last_7_days} hint="Частота активности" />
+          <StatCard label="Сумма серий" value={overview.streak_total} hint="Суммарные streak по привычкам" />
+          <TipsCard tips={overview.tips} />
+        </div>
+      )}
 
       <div className="card">
         <div className="row">
@@ -94,10 +121,50 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <details className="card">
-        <summary>Сырые данные (habits)</summary>
-        <pre className="pre">{JSON.stringify(allHabits, null, 2)}</pre>
-      </details>
+      <div className="card tips">
+        <div className="title">Как использовать HabitGraph</div>
+        <ul>
+          <li>Создай привычку, затем отмечай ежедневные check-in.</li>
+          <li>Пиши в дневник — по записям будет работать семантический поиск.</li>
+          <li>Добавь друзей в соцграф и посмотри рекомендации по общим целям.</li>
+        </ul>
+        <details>
+          <summary>Сырые данные (habits)</summary>
+          <pre className="pre">{JSON.stringify(allHabits, null, 2)}</pre>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="card stat">
+      <div className="muted tiny">{label}</div>
+      <div className="stat-value">{value}</div>
+      {hint && <div className="muted tiny">{hint}</div>}
+    </div>
+  );
+}
+
+function TipsCard({ tips }: { tips: string[] }) {
+  if (!tips.length) {
+    return (
+      <div className="card stat">
+        <div className="muted tiny">Следующий шаг</div>
+        <div className="stat-value">Все готово</div>
+        <div className="muted tiny">Продолжай заполнять данные.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="card stat">
+      <div className="muted tiny">Следующий шаг</div>
+      <ul className="tip-list">
+        {tips.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
     </div>
   );
 }

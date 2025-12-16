@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, DiaryEntry, Similar } from "../api";
+import { useUser } from "../context/UserContext";
 
 export default function DiaryPage() {
+  const { userId } = useUser();
   const [items, setItems] = useState<DiaryEntry[]>([]);
   const [text, setText] = useState("");
   const [tags, setTags] = useState("");
@@ -15,7 +17,7 @@ export default function DiaryPage() {
     setLoading(true);
     setError(null);
     try {
-      setItems(await api.diary.list());
+      setItems(await api.diary.list(userId));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -25,7 +27,7 @@ export default function DiaryPage() {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [userId]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -34,6 +36,7 @@ export default function DiaryPage() {
     setError(null);
     try {
       await api.diary.create(
+        userId,
         text.trim(),
         tags
           .split(",")
@@ -56,7 +59,7 @@ export default function DiaryPage() {
     setLoading(true);
     setError(null);
     try {
-      setSimilar(await api.diary.similarByText(query));
+      setSimilar(await api.diary.similarByText(userId, query));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -66,7 +69,19 @@ export default function DiaryPage() {
 
   return (
     <div className="stack">
-      <h1>Дневник</h1>
+      <div className="hero">
+        <div>
+          <p className="eyebrow">Дневник + смысловой поиск</p>
+          <h1>Записывай, чтобы находить инсайты</h1>
+          <p className="muted">
+            Добавляй заметки про сон, спорт, питание, настроение. Мы сохраняем теги и делаем поиск по смыслу через Qdrant.
+          </p>
+        </div>
+        <div className="hero-actions">
+          <div className="chip">user_id: {userId}</div>
+          <div className="muted tiny">По умолчанию X-User-Id = {userId}</div>
+        </div>
+      </div>
 
       <form className="card stack" onSubmit={onCreate}>
         <textarea

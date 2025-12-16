@@ -1,12 +1,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const DEMO_USER_ID = String(import.meta.env.VITE_DEMO_USER_ID ?? "1");
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, userId: number, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-User-Id": DEMO_USER_ID,
+      "X-User-Id": String(userId),
       ...(init?.headers ?? {})
     }
   });
@@ -49,33 +48,51 @@ export type Recommendation = {
 };
 
 export const api = {
-  health: () => request<{ status: string }>("/health"),
+  health: (userId: number) => request<{ status: string }>("/health", userId),
 
   habits: {
-    list: () => request<Habit[]>("/habits"),
-    create: (title: string) => request<Habit>("/habits", { method: "POST", body: JSON.stringify({ title }) })
+    list: (userId: number) => request<Habit[]>("/habits", userId),
+    create: (userId: number, title: string) =>
+      request<Habit>("/habits", userId, { method: "POST", body: JSON.stringify({ title }) })
   },
   goals: {
-    list: () => request<Goal[]>("/goals"),
-    create: (title: string) => request<Goal>("/goals", { method: "POST", body: JSON.stringify({ title }) })
+    list: (userId: number) => request<Goal[]>("/goals", userId),
+    create: (userId: number, title: string) =>
+      request<Goal>("/goals", userId, { method: "POST", body: JSON.stringify({ title }) })
   },
   checkins: {
-    create: (habit_id: number) =>
-      request("/checkins", { method: "POST", body: JSON.stringify({ habit_id }) })
+    create: (userId: number, habit_id: number) =>
+      request("/checkins", userId, { method: "POST", body: JSON.stringify({ habit_id }) })
   },
   dashboard: {
-    get: () => request<Dashboard>("/dashboard")
+    get: (userId: number) => request<Dashboard>("/dashboard", userId)
   },
   diary: {
-    list: () => request<DiaryEntry[]>("/diary"),
-    create: (text: string, tags: string[], mood?: string) =>
-      request<DiaryEntry>("/diary", { method: "POST", body: JSON.stringify({ text, tags, mood, metadata: {} }) }),
-    similarByText: (text: string) => request<Similar[]>(`/diary/similar?text=${encodeURIComponent(text)}`)
+    list: (userId: number) => request<DiaryEntry[]>("/diary", userId),
+    create: (userId: number, text: string, tags: string[], mood?: string) =>
+      request<DiaryEntry>("/diary", userId, {
+        method: "POST",
+        body: JSON.stringify({ text, tags, mood, metadata: {} })
+      }),
+    similarByText: (userId: number, text: string) =>
+      request<Similar[]>(`/diary/similar?text=${encodeURIComponent(text)}`, userId)
   },
   social: {
-    recommendations: () => request<Recommendation[]>("/social/recommendations"),
-    addFriend: (friend_user_id: number) =>
-      request("/social/friends", { method: "POST", body: JSON.stringify({ friend_user_id }) })
+    recommendations: (userId: number) => request<Recommendation[]>("/social/recommendations", userId),
+    addFriend: (userId: number, friend_user_id: number) =>
+      request("/social/friends", userId, { method: "POST", body: JSON.stringify({ friend_user_id }) })
+  },
+  overview: {
+    get: (userId: number) => request<Overview>("/overview", userId)
   }
 };
 
+export type Overview = {
+  user_id: number;
+  habits_count: number;
+  goals_count: number;
+  diary_entries: number;
+  checkins_last_7_days: number;
+  streak_total: number;
+  tips: string[];
+};
