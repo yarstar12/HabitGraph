@@ -1,8 +1,7 @@
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.models import User
-from app.db.neo4j import upsert_user
 from app.db.postgres import get_db
 
 
@@ -16,12 +15,5 @@ def get_current_user(
 ) -> User:
     user = db.get(User, user_id)
     if user is None:
-        user = User(id=user_id, username=f"user_{user_id}")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        try:
-            upsert_user(user_id=user.id, username=user.username)
-        except Exception:
-            pass
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user

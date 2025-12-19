@@ -63,6 +63,7 @@ def link_user_goal(user_id: int, goal_id: int) -> None:
         session.run(
             """
             MERGE (u:User {id: $user_id})
+            WITH u
             MATCH (g:Goal {id: $goal_id, catalog: true})
             MERGE (u)-[:HAS_GOAL]->(g)
             """,
