@@ -1,48 +1,41 @@
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import DiaryPage from "./pages/DiaryPage";
 import SocialPage from "./pages/SocialPage";
-import { useUser } from "./context/UserContext";
+import HabitsPage from "./pages/HabitsPage";
+import GoalsPage from "./pages/GoalsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function Header() {
-  const { pathname } = useLocation();
-  const { userId, setUserId } = useUser();
-
   return (
     <header className="header">
       <div className="brand">
         <div className="brand-mark">HG</div>
         <div className="brand-text">
           <div className="brand-title">HabitGraph</div>
-          <div className="brand-subtitle">Привычки, дневник, рекомендации</div>
+          <div className="brand-subtitle">Привычки, дневник, поддержка</div>
         </div>
       </div>
+
       <nav className="nav">
-        <Link className={pathname === "/" ? "active" : ""} to="/">
+        <NavLink to="/" end>
           Дашборд
-        </Link>
-        <Link className={pathname === "/diary" ? "active" : ""} to="/diary">
-          Дневник
-        </Link>
-        <Link className={pathname === "/social" ? "active" : ""} to="/social">
-          Соцграф
-        </Link>
+        </NavLink>
+        <NavLink to="/habits">Привычки</NavLink>
+        <NavLink to="/goals">Цели</NavLink>
+        <NavLink to="/diary">Дневник</NavLink>
+        <NavLink to="/social">Социальное</NavLink>
       </nav>
-      <div className="userbox">
-        <label className="muted tiny" htmlFor="user-id">
-          user_id
-        </label>
-        <div className="row">
-          <input
-            id="user-id"
-            value={userId}
-            onChange={(e) => setUserId(Number(e.target.value))}
-            className="user-input"
-          />
-          <span className="chip">X-User-Id</span>
+
+      <details className="profile-menu">
+        <summary>
+          <div className="avatar">П</div>
+          <span>Профиль</span>
+        </summary>
+        <div className="menu">
+          <NavLink to="/settings">Настройки</NavLink>
         </div>
-        <div className="muted tiny">Сохраняется в браузере</div>
-      </div>
+      </details>
     </header>
   );
 }
@@ -57,8 +50,11 @@ export default function App() {
         <main className="main">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/habits" element={<HabitsPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
             <Route path="/diary" element={<DiaryPage />} />
             <Route path="/social" element={<SocialPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>

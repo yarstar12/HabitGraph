@@ -1,26 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, DashboardHabit, Habit, Overview } from "../api";
+import { Link } from "react-router-dom";
+import { api, DashboardSummary, TodayHabit } from "../api";
+import { EmptyState, ErrorState, LoadingGrid, SectionHeader } from "../components/States";
+import { Modal } from "../components/Modal";
+import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/UserContext";
+import { useOnboarding } from "../context/OnboardingContext";
 
 export default function DashboardPage() {
   const { userId } = useUser();
-  const [habits, setHabits] = useState<DashboardHabit[]>([]);
-  const [allHabits, setAllHabits] = useState<Habit[]>([]);
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [newHabitTitle, setNewHabitTitle] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const { completed } = useOnboarding();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const totalStreak = useMemo(() => habits.reduce((acc, h) => acc + (h.streak ?? 0), 0), [habits]);
+  const [error, setError] = useState<string | null>(null);
+  const [checkinOpen, setCheckinOpen] = useState(false);
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
-      const dash = await api.dashboard.get(userId);
-      setHabits(dash.habits);
-      setAllHabits(await api.habits.list(userId));
-      setOverview(await api.overview.get(userId));
+      const data = await api.dashboard.summary(userId);
+      setSummary(data);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -32,139 +33,218 @@ export default function DashboardPage() {
     void refresh();
   }, [userId]);
 
-  async function onCreateHabit() {
-    if (!newHabitTitle.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await api.habits.create(userId, newHabitTitle.trim());
-      setNewHabitTitle("");
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const progress = useMemo(() => {
+    if (!summary || summary.today_total === 0) return 0;
+    return Math.round((summary.today_done / summary.today_total) * 100);
+  }, [summary]);
 
-  async function onCheckin(habitId: number) {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.checkins.create(userId, habitId);
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const checklist = useMemo(() => {
+    if (!summary) return [];
+    return [
+      {
+        id: "habit",
+        title: "Создай привычку",
+        done: summary.habits_count > 0,
+        to: "/habits"
+      },
+      {
+        id: "checkin",
+        title: "Отметь выполнение",
+        done: summary.today_done > 0,
+        to: "/"
+      },
+      {
+        id: "diary",
+        title: "Добавь запись в дневник",
+        done: summary.diary_entries > 0,
+        to: "/diary"
+      },
+      {
+        id: "semantic",
+        title: "Найди похожие записи",
+        done: completed.semantic_search,
+        to: "/diary"
+      },
+      {
+        id: "social",
+        title: "Посмотри рекомендации людей",
+        done: completed.social_viewed,
+        to: "/social"
+      }
+    ];
+  }, [summary, completed]);
+
+  const checklistProgress = checklist.filter((i) => i.done).length;
+  const checklistLabel = checklist.length > 0 ? `${checklistProgress}/${checklist.length}` : "—";
 
   return (
     <div className="stack">
-      <div className="hero">
+      <section className="hero">
         <div>
-          <p className="eyebrow">Твой путь</p>
-          <h1>Дашборд HabitGraph</h1>
+          <p className="eyebrow">Сегодня</p>
+          <h1>Добро пожаловать в HabitGraph</h1>
           <p className="muted">
-            Отслеживай привычки, streak, дневник и рекомендации. Заполняй данные — сервис подхватит всё автоматически.
+            Сервис помогает держать фокус: привычки, дневник и поддержка сообщества — в одном месте.
           </p>
         </div>
-        <div className="hero-actions">
-          <div className="chip accent">user_id: {userId}</div>
-          <div className="muted tiny">Меняется вверху справа</div>
-        </div>
-      </div>
-
-      {overview && (
-        <div className="stats-grid">
-          <StatCard label="Привычки" value={overview.habits_count} hint="Сколько привычек у пользователя" />
-          <StatCard label="Цели" value={overview.goals_count} hint="Цели для ориентира" />
-          <StatCard label="Записей в дневнике" value={overview.diary_entries} hint="Для семантического поиска" />
-          <StatCard label="Отметок за 7 дней" value={overview.checkins_last_7_days} hint="Частота активности" />
-          <StatCard label="Сумма серий" value={overview.streak_total} hint="Суммарные streak по привычкам" />
-          <TipsCard tips={overview.tips} />
-        </div>
-      )}
-
-      <div className="card">
-        <div className="row">
-          <input
-            value={newHabitTitle}
-            onChange={(e) => setNewHabitTitle(e.target.value)}
-            placeholder="Название новой привычки"
-          />
-          <button onClick={onCreateHabit} disabled={loading}>
-            Добавить
+        <div className="hero-card">
+          <div className="hero-metric">
+            <div className="muted">Сегодня выполнено</div>
+            <div className="metric">
+              {summary ? `${summary.today_done}/${summary.today_total}` : "—"}
+            </div>
+          </div>
+          <div className="progress">
+            <div className="progress-bar" style={{ width: `${progress}%` }} />
+          </div>
+          <button className="btn primary" onClick={() => setCheckinOpen(true)}>
+            Отметить выполнение
           </button>
         </div>
-        <div className="muted">Сумма серий (streak): {totalStreak}</div>
-      </div>
+      </section>
 
-      {error && <div className="error">{error}</div>}
-
-      <div className="grid">
-        {habits.map((h) => (
-          <div key={h.habit_id} className="card">
-            <div className="title">{h.title}</div>
-            <div className="muted">
-              серия: <b>{h.streak}</b> · отметок: <b>{h.total_checkins}</b>
-            </div>
-            <div className="muted">последняя: {h.last_checkin ?? "—"}</div>
-            <button onClick={() => onCheckin(h.habit_id)} disabled={loading}>
-              Отметить сегодня
-            </button>
-          </div>
-        ))}
-        {!habits.length && !loading && (
-          <div className="card muted">Пока нет привычек. Создай первую выше.</div>
+      <section className="stack">
+        <SectionHeader title="Сегодня" subtitle="Отметь привычки, которые сделал" />
+        {loading && <LoadingGrid count={3} />}
+        {error && <ErrorState message={error} onRetry={refresh} />}
+        {!loading && summary && summary.habits_today.length === 0 && (
+          <EmptyState
+            title="Пока нет привычек"
+            description="Создай первую привычку, чтобы видеть список на сегодня."
+            action={<Link className="btn ghost" to="/habits">Создать привычку</Link>}
+          />
         )}
-      </div>
+        {!loading && summary && summary.habits_today.length > 0 && (
+          <div className="grid">
+            {summary.habits_today.map((h) => (
+              <TodayHabitCard key={h.habit_id} habit={h} onDone={refresh} />
+            ))}
+          </div>
+        )}
+      </section>
 
-      <div className="card tips">
-        <div className="title">Как использовать HabitGraph</div>
-        <ul>
-          <li>Создай привычку, затем отмечай ежедневные check-in.</li>
-          <li>Пиши в дневник — по записям будет работать семантический поиск.</li>
-          <li>Добавь друзей в соцграф и посмотри рекомендации по общим целям.</li>
-        </ul>
-        <details>
-          <summary>Сырые данные (habits)</summary>
-          <pre className="pre">{JSON.stringify(allHabits, null, 2)}</pre>
-        </details>
-      </div>
+      <section className="grid-2">
+        <div className="card">
+          <SectionHeader title="Прогресс" subtitle="Активность за 7 дней" />
+          {summary ? <WeekChart points={summary.week_activity} /> : <div className="skeleton" />}
+          <div className="metric-row">
+            <div>
+              <div className="muted">Суммарная серия</div>
+              <div className="metric">{summary ? summary.streak_total : "—"}</div>
+            </div>
+            <div>
+              <div className="muted">Привычек</div>
+              <div className="metric">{summary ? summary.habits_count : "—"}</div>
+            </div>
+            <div>
+              <div className="muted">Целей</div>
+              <div className="metric">{summary ? summary.goals_count : "—"}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <SectionHeader
+            title="Первые шаги"
+            subtitle={`Прогресс: ${checklistLabel}`}
+          />
+          <div className="checklist">
+            {checklist.map((item) => (
+              <Link key={item.id} className={`check-item ${item.done ? "done" : ""}`} to={item.to}>
+                <span className="check-bullet">{item.done ? "✓" : "•"}</span>
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+          <div className="muted tiny">Каждый шаг помогает сервису точнее подсказывать тебе.</div>
+        </div>
+      </section>
+
+      <Modal open={checkinOpen} title="Отметить выполнение" onClose={() => setCheckinOpen(false)}>
+        {summary && summary.habits_today.length > 0 ? (
+          <div className="stack">
+            {summary.habits_today.map((h) => (
+              <CheckinRow key={h.habit_id} habit={h} onDone={async () => {
+                await markDone(userId, h.habit_id, toast);
+                await refresh();
+                setCheckinOpen(false);
+              }} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Пока нечего отмечать" description="Создай первую привычку." />
+        )}
+      </Modal>
     </div>
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
-  return (
-    <div className="card stat">
-      <div className="muted tiny">{label}</div>
-      <div className="stat-value">{value}</div>
-      {hint && <div className="muted tiny">{hint}</div>}
-    </div>
-  );
-}
+function TodayHabitCard({ habit, onDone }: { habit: TodayHabit; onDone: () => void }) {
+  const { userId } = useUser();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
 
-function TipsCard({ tips }: { tips: string[] }) {
-  if (!tips.length) {
-    return (
-      <div className="card stat">
-        <div className="muted tiny">Следующий шаг</div>
-        <div className="stat-value">Все готово</div>
-        <div className="muted tiny">Продолжай заполнять данные.</div>
-      </div>
-    );
+  async function handleDone() {
+    if (habit.done) return;
+    setSaving(true);
+    try {
+      await markDone(userId, habit.habit_id, toast);
+      onDone();
+    } catch (e) {
+      toast.push({ type: "error", title: "Не удалось отметить", description: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
   }
+
   return (
-    <div className="card stat">
-      <div className="muted tiny">Следующий шаг</div>
-      <ul className="tip-list">
-        {tips.map((t) => (
-          <li key={t}>{t}</li>
-        ))}
-      </ul>
+    <div className="card habit-card">
+      <div>
+        <div className="title">{habit.title}</div>
+        <div className="muted">Сегодня</div>
+      </div>
+      <button className={`btn ${habit.done ? "success" : "primary"}`} onClick={handleDone} disabled={saving}>
+        {habit.done ? "Готово" : "Сделано"}
+      </button>
+    </div>
+  );
+}
+
+function WeekChart({ points }: { points: { date: string; count: number }[] }) {
+  const max = Math.max(...points.map((p) => p.count), 1);
+  return (
+    <div className="week-chart">
+      {points.map((p) => (
+        <div key={p.date} className="week-bar">
+          <div className="week-fill" style={{ height: `${(p.count / max) * 100}%` }} />
+          <span className="tiny">{new Date(p.date).getDate()}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function markDone(userId: number, habitId: number, toast: { push: (t: any) => void }) {
+  await api.checkins.create(userId, habitId);
+  toast.push({ type: "success", title: "Отлично!", description: "Привычка отмечена." });
+}
+
+function CheckinRow({ habit, onDone }: { habit: TodayHabit; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <div className="row-between">
+      <div>
+        <div className="title">{habit.title}</div>
+        <div className="muted">{habit.done ? "Уже отмечено сегодня" : "Можно отметить сейчас"}</div>
+      </div>
+      <button className="btn primary" disabled={habit.done || loading} onClick={async () => {
+        setLoading(true);
+        await onDone();
+        setLoading(false);
+      }}>
+        {habit.done ? "Готово" : "Отметить"}
+      </button>
     </div>
   );
 }

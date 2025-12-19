@@ -11,22 +11,61 @@ async function request<T>(path: string, userId: number, init?: RequestInit): Pro
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+    let message = `${res.status} ${res.statusText}`;
+    try {
+      const data = (await res.json()) as { message?: string };
+      if (data?.message) message = data.message;
+    } catch {
+      const text = await res.text();
+      if (text) message = text;
+    }
+    throw new Error(message);
   }
   return (await res.json()) as T;
 }
 
-export type Habit = { id: number; user_id: number; title: string };
-export type Goal = { id: number; user_id: number; title: string };
-export type DashboardHabit = {
+export type Habit = {
+  id: number;
+  user_id: number;
+  title: string;
+  frequency?: string | null;
+  target_value?: number | null;
+  target_unit?: string | null;
+  reminder_time?: string | null;
+  goal_id?: number | null;
+  is_archived: boolean;
+};
+
+export type Goal = {
+  id: number;
+  user_id: number;
+  title: string;
+  description?: string | null;
+  is_archived: boolean;
+};
+
+export type TodayHabit = {
   habit_id: number;
   title: string;
-  streak: number;
-  total_checkins: number;
-  last_checkin: string | null;
+  done: boolean;
 };
-export type Dashboard = { user_id: number; habits: DashboardHabit[] };
+
+export type ActivityPoint = {
+  date: string;
+  count: number;
+};
+
+export type DashboardSummary = {
+  user_id: number;
+  today_done: number;
+  today_total: number;
+  habits_today: TodayHabit[];
+  week_activity: ActivityPoint[];
+  streak_total: number;
+  habits_count: number;
+  goals_count: number;
+  diary_entries: number;
+};
 
 export type DiaryEntry = {
   id: string;
@@ -36,7 +75,17 @@ export type DiaryEntry = {
   mood: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+  updated_at?: string | null;
 };
+
+export type DiaryList = {
+  items: DiaryEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  sort: string;
+};
+
 export type Similar = { entry: DiaryEntry; score: number };
 
 export type Recommendation = {
@@ -47,52 +96,71 @@ export type Recommendation = {
   score: number;
 };
 
+export type Friend = {
+  user_id: number;
+  username?: string | null;
+};
+
+export type User = {
+  id: number;
+  username: string;
+};
+
 export const api = {
   health: (userId: number) => request<{ status: string }>("/health", userId),
 
+  dashboard: {
+    summary: (userId: number) => request<DashboardSummary>("/dashboard/summary", userId)
+  },
+
   habits: {
-    list: (userId: number) => request<Habit[]>("/habits", userId),
-    create: (userId: number, title: string) =>
-      request<Habit>("/habits", userId, { method: "POST", body: JSON.stringify({ title }) })
+    list: (userId: number, status: "active" | "archived" | "all" = "active") =>
+      request<Habit[]>(`/habits?status=${status}`, userId),
+    create: (userId: number, payload: Partial<Habit>) =>
+      request<Habit>("/habits", userId, { method: "POST", body: JSON.stringify(payload) }),
+    update: (userId: number, habitId: number, payload: Partial<Habit>) =>
+      request<Habit>(`/habits/${habitId}`, userId, { method: "PATCH", body: JSON.stringify(payload) })
   },
+
   goals: {
-    list: (userId: number) => request<Goal[]>("/goals", userId),
-    create: (userId: number, title: string) =>
-      request<Goal>("/goals", userId, { method: "POST", body: JSON.stringify({ title }) })
+    list: (userId: number, status: "active" | "archived" | "all" = "active") =>
+      request<Goal[]>(`/goals?status=${status}`, userId),
+    create: (userId: number, payload: Partial<Goal>) =>
+      request<Goal>("/goals", userId, { method: "POST", body: JSON.stringify(payload) }),
+    update: (userId: number, goalId: number, payload: Partial<Goal>) =>
+      request<Goal>(`/goals/${goalId}`, userId, { method: "PATCH", body: JSON.stringify(payload) })
   },
+
   checkins: {
     create: (userId: number, habit_id: number) =>
       request("/checkins", userId, { method: "POST", body: JSON.stringify({ habit_id }) })
   },
-  dashboard: {
-    get: (userId: number) => request<Dashboard>("/dashboard", userId)
-  },
+
   diary: {
-    list: (userId: number) => request<DiaryEntry[]>("/diary", userId),
-    create: (userId: number, text: string, tags: string[], mood?: string) =>
-      request<DiaryEntry>("/diary", userId, {
-        method: "POST",
-        body: JSON.stringify({ text, tags, mood, metadata: {} })
-      }),
+    list: (userId: number, limit = 10, offset = 0, sort: "desc" | "asc" = "desc") =>
+      request<DiaryList>(`/diary?limit=${limit}&offset=${offset}&sort=${sort}`, userId),
+    create: (userId: number, payload: Partial<DiaryEntry>) =>
+      request<DiaryEntry>("/diary", userId, { method: "POST", body: JSON.stringify(payload) }),
+    update: (userId: number, entryId: string, payload: Partial<DiaryEntry>) =>
+      request<DiaryEntry>(`/diary/${entryId}`, userId, { method: "PATCH", body: JSON.stringify(payload) }),
+    remove: (userId: number, entryId: string) =>
+      request(`/diary/${entryId}`, userId, { method: "DELETE" }),
     similarByText: (userId: number, text: string) =>
       request<Similar[]>(`/diary/similar?text=${encodeURIComponent(text)}`, userId)
   },
+
   social: {
+    friends: (userId: number) => request<Friend[]>("/social/friends", userId),
     recommendations: (userId: number) => request<Recommendation[]>("/social/recommendations", userId),
     addFriend: (userId: number, friend_user_id: number) =>
       request("/social/friends", userId, { method: "POST", body: JSON.stringify({ friend_user_id }) })
   },
-  overview: {
-    get: (userId: number) => request<Overview>("/overview", userId)
-  }
-};
 
-export type Overview = {
-  user_id: number;
-  habits_count: number;
-  goals_count: number;
-  diary_entries: number;
-  checkins_last_7_days: number;
-  streak_total: number;
-  tips: string[];
+  users: {
+    me: (userId: number) => request<User>("/users/me", userId),
+    updateMe: (userId: number, username: string) =>
+      request<User>("/users/me", userId, { method: "PATCH", body: JSON.stringify({ username }) }),
+    search: (userId: number, query: string, limit = 10) =>
+      request<User[]>(`/users/search?q=${encodeURIComponent(query)}&limit=${limit}`, userId)
+  }
 };

@@ -1,19 +1,33 @@
 import { useEffect, useState } from "react";
-import { api, Recommendation } from "../api";
+import { api, Friend, Recommendation, User } from "../api";
+import { EmptyState, ErrorState, LoadingGrid, SectionHeader } from "../components/States";
+import { useToast } from "../context/ToastContext";
 import { useUser } from "../context/UserContext";
+import { useOnboarding } from "../context/OnboardingContext";
 
 export default function SocialPage() {
   const { userId } = useUser();
-  const [items, setItems] = useState<Recommendation[]>([]);
-  const [friendId, setFriendId] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const { markStep } = useOnboarding();
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
-      setItems(await api.social.recommendations(userId));
+      const [friendsData, recData] = await Promise.all([
+        api.social.friends(userId),
+        api.social.recommendations(userId)
+      ]);
+      setFriends(friendsData);
+      setRecommendations(recData);
+      markStep("social_viewed");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -25,74 +39,117 @@ export default function SocialPage() {
     void refresh();
   }, [userId]);
 
-  async function onAddFriend() {
-    const id = Number(friendId);
-    if (!Number.isFinite(id) || id <= 0) return;
-    setLoading(true);
-    setError(null);
+  async function addFriend(friendId: number) {
     try {
-      await api.social.addFriend(userId, id);
-      setFriendId("");
+      await api.social.addFriend(userId, friendId);
+      toast.push({ type: "success", title: "Друг добавлен" });
       await refresh();
     } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
+      toast.push({ type: "error", title: "Не удалось добавить", description: (e as Error).message });
+    }
+  }
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    try {
+      const results = await api.users.search(userId, searchQuery.trim());
+      setSearchResults(results);
+      setSearched(true);
+    } catch (e) {
+      toast.push({ type: "error", title: "Поиск не удался", description: (e as Error).message });
     }
   }
 
   return (
     <div className="stack">
-      <div className="hero">
+      <section className="hero">
         <div>
-          <p className="eyebrow">Друзья и похожие цели</p>
-          <h1>Соцграф HabitGraph</h1>
+          <p className="eyebrow">Социальное</p>
+          <h1>Поддержка через общие цели</h1>
           <p className="muted">
-            Добавляй друзей, ищи людей с похожими целями и привычками. Рекомендации строятся в Neo4j на основании общих
-            связей.
+            Добавляй друзей, находи людей с похожими привычками и поддерживай друг друга в пути.
           </p>
         </div>
-        <div className="hero-actions">
-          <div className="chip">user_id: {userId}</div>
-          <div className="muted tiny">Меняется в шапке</div>
-        </div>
-      </div>
+      </section>
 
-      <div className="card">
-        <div className="row">
-          <input
-            value={friendId}
-            onChange={(e) => setFriendId(e.target.value)}
-            placeholder="user_id друга (например, 2)"
+      <section className="stack">
+        <SectionHeader title="Мои друзья" subtitle="Люди, с которыми ты делишь прогресс" />
+        {loading && <LoadingGrid count={3} />}
+        {error && <ErrorState message={error} onRetry={refresh} />}
+        {!loading && friends.length === 0 && (
+          <EmptyState
+            title="Пока нет друзей"
+            description="Найди людей с похожими привычками и добавь их в друзья."
           />
-          <button onClick={onAddFriend} disabled={loading}>
-            Добавить в друзья
-          </button>
-          <button onClick={refresh} disabled={loading}>
-            Обновить
-          </button>
-        </div>
-        <div className="muted">
-          Рекомендации основаны на общих целях/привычках в Neo4j и исключают текущих друзей.
-        </div>
-      </div>
-
-      {error && <div className="error">{error}</div>}
-
-      <div className="grid">
-        {items.map((r) => (
-          <div key={r.user_id} className="card">
-            <div className="title">
-              пользователь {r.user_id} {r.username ? `(${r.username})` : ""}
-            </div>
-            <div className="muted">
-              общие цели: <b>{r.shared_goals}</b> · общие привычки: <b>{r.shared_habits}</b>
-            </div>
-            <div className="muted">оценка: {r.score}</div>
+        )}
+        {!loading && friends.length > 0 && (
+          <div className="grid">
+            {friends.map((f) => (
+              <div key={f.user_id} className="card">
+                <div className="title">{f.username ?? "Пользователь"}</div>
+                <div className="muted">В друзьях</div>
+              </div>
+            ))}
           </div>
-        ))}
-        {!items.length && !loading && <div className="card muted">Пока нет рекомендаций.</div>}
-      </div>
+        )}
+      </section>
+
+      <section className="grid-2">
+        <div className="card stack">
+          <SectionHeader title="Рекомендации" subtitle="Люди с похожими целями" />
+          {recommendations.length === 0 && (
+            <EmptyState
+              title="Пока нет рекомендаций"
+              description="Создай цели и привычки, чтобы появились совпадения."
+            />
+          )}
+          {recommendations.length > 0 && (
+            <div className="stack">
+              {recommendations.map((r) => (
+                <div key={r.user_id} className="row-between">
+                  <div>
+                    <div className="title">{r.username ?? "Пользователь"}</div>
+                    <div className="muted">
+                      Общие цели: {r.shared_goals} • Общие привычки: {r.shared_habits}
+                    </div>
+                  </div>
+                  <button className="btn primary" onClick={() => addFriend(r.user_id)}>
+                    Добавить
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card stack">
+          <SectionHeader title="Поиск пользователей" subtitle="По имени или никнейму" />
+          <div className="row">
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Введите имя" />
+            <button className="btn primary" onClick={handleSearch}>
+              Найти
+            </button>
+          </div>
+          {searchResults.length > 0 && (
+            <div className="stack">
+              {searchResults.map((user) => (
+                <div key={user.id} className="row-between">
+                  <div>
+                    <div className="title">{user.username}</div>
+                    <div className="muted">Пользователь</div>
+                  </div>
+                  <button className="btn ghost" onClick={() => addFriend(user.id)}>
+                    Добавить
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {searched && searchResults.length === 0 && (
+            <EmptyState title="Никого не найдено" description="Попробуйте изменить запрос." />
+          )}
+        </div>
+      </section>
     </div>
   );
 }

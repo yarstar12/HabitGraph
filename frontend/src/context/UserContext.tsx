@@ -3,11 +3,13 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 type UserContextType = {
   userId: number;
   setUserId: (id: number) => void;
+  isDebug: boolean;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
+  const isDebug = String(import.meta.env.VITE_DEBUG ?? "").toLowerCase() === "true";
   const [userId, setUserIdState] = useState<number>(() => {
     const saved = localStorage.getItem("habitgraph.userId");
     if (saved) {
@@ -28,9 +30,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUserId: (id: number) => {
         if (!Number.isFinite(id) || id <= 0) return;
         setUserIdState(id);
-      }
+      },
+      isDebug
     }),
-    [userId]
+    [userId, isDebug]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
@@ -41,4 +44,3 @@ export function useUser() {
   if (!ctx) throw new Error("useUser must be used within UserProvider");
   return ctx;
 }
-
