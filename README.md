@@ -5,9 +5,9 @@ HabitGraph — трекер привычек/здоровья с дневник�
 ## Текущее состояние (что есть)
 
 - Backend (FastAPI) с PostgreSQL + MongoDB + Redis + Qdrant + Neo4j + (опционально) RabbitMQ.
-- Эндпоинты: habits/goals/checkins/dashboard/diary/diary/similar/social/recommendations/social/friends/overview/health.
+- Эндпоинты: habits/goals/checkins/dashboard/summary/diary/diary/similar/social/friends/social/recommendations/users/me/users/search/health.
 - Redis считает streak, Qdrant хранит вектора дневника, Neo4j — соц-граф и рекомендации, RabbitMQ — хук для событий (если поднимешь).
-- Frontend (React/Vite) с 3 экранами: Дашборд (статы, советы), Дневник (ввод + семантический поиск), Соцграф (рекомендации, add friend). В шапке можно задать `user_id` (проброс в `X-User-Id`).
+- Frontend (React/Vite) с полноценной IA: Дашборд / Привычки / Цели / Дневник / Социальное / Настройки. Онбординг‑чеклист на дашборде, нормальные empty/loading/error состояния.
 - Сидер по умолчанию выключен; reset для очистки всех БД есть.
 
 ## Быстрый запуск (Docker)
@@ -151,10 +151,15 @@ RabbitMQ — шина событий между API и воркерами для
 ## Минимальные API endpoints
 
 - `POST /habits`, `GET /habits`
+- `PATCH /habits/{id}`
 - `POST /goals`, `GET /goals`
+- `PATCH /goals/{id}`
 - `POST /checkins`
 - `GET /dashboard`
+- `GET /dashboard/summary`
 - `GET /overview`
-- `POST /diary`, `GET /diary`
+- `POST /diary`, `GET /diary` (pagination)
+- `PATCH /diary/{id}`, `DELETE /diary/{id}`
 - `GET /diary/similar`
-- `GET /social/recommendations` (+ `POST /social/friends`)
+- `GET /social/friends`, `GET /social/recommendations`, `POST /social/friends`
+- `GET /users/me`, `PATCH /users/me`, `GET /users/search`
