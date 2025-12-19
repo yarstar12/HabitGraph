@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.core.settings import settings
 from app.db.models import Checkin, Goal, Habit, User
 from app.db.mongo import get_diary_collection
-from app.db.neo4j import add_friend, link_user_goal, link_user_habit, upsert_user
+from app.db.neo4j import add_friend, link_user_goal, link_user_habit, list_goal_catalog, upsert_user
 from app.db.postgres import SessionLocal, init_db
 from app.db.qdrant import upsert_diary_entry
 from app.db.redis import compute_and_store_streak
@@ -30,8 +30,8 @@ def _create_habit(db, user_id: int, title: str) -> Habit:
     return habit
 
 
-def _create_goal(db, user_id: int, title: str) -> Goal:
-    goal = Goal(user_id=user_id, title=title)
+def _select_goal(db, user_id: int, catalog_id: int, title: str, description: str | None) -> Goal:
+    goal = Goal(user_id=user_id, catalog_id=catalog_id, title=title, description=description)
     db.add(goal)
     db.commit()
     db.refresh(goal)
@@ -73,15 +73,34 @@ def main() -> None:
                 pass
 
         # Habits / Goals
+        catalog = {item["id"]: item for item in list_goal_catalog()}
         a_h1 = _create_habit(db, alice.id, "10k steps")
         a_h2 = _create_habit(db, alice.id, "Drink water")
-        a_g1 = _create_goal(db, alice.id, "Improve sleep")
+        a_g1 = _select_goal(
+            db,
+            alice.id,
+            1,
+            catalog.get(1, {}).get("title", "Здоровый сон"),
+            catalog.get(1, {}).get("description"),
+        )
 
         b_h1 = _create_habit(db, bob.id, "Gym")
-        b_g1 = _create_goal(db, bob.id, "Lose weight")
+        b_g1 = _select_goal(
+            db,
+            bob.id,
+            2,
+            catalog.get(2, {}).get("title", "Регулярная активность"),
+            catalog.get(2, {}).get("description"),
+        )
 
         c_h1 = _create_habit(db, carol.id, "10k steps")
-        c_g1 = _create_goal(db, carol.id, "Improve sleep")
+        c_g1 = _select_goal(
+            db,
+            carol.id,
+            1,
+            catalog.get(1, {}).get("title", "Здоровый сон"),
+            catalog.get(1, {}).get("description"),
+        )
 
         # Neo4j links
         for (uid, hid, title) in [
@@ -95,13 +114,13 @@ def main() -> None:
             except Exception:
                 pass
 
-        for (uid, gid, title) in [
-            (alice.id, a_g1.id, a_g1.title),
-            (bob.id, b_g1.id, b_g1.title),
-            (carol.id, c_g1.id, c_g1.title),
+        for (uid, gid) in [
+            (alice.id, a_g1.catalog_id or 1),
+            (bob.id, b_g1.catalog_id or 2),
+            (carol.id, c_g1.catalog_id or 1),
         ]:
             try:
-                link_user_goal(user_id=uid, goal_id=gid, title=title)
+                link_user_goal(user_id=uid, goal_id=gid)
             except Exception:
                 pass
 

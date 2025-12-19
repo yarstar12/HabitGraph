@@ -5,6 +5,24 @@ from app.core.settings import settings
 _driver = None
 _ready = False
 
+GOAL_CATALOG: list[dict[str, object]] = [
+    {
+        "id": 1,
+        "title": "Здоровый сон",
+        "description": "Наладить режим сна и восстановление каждый день."
+    },
+    {
+        "id": 2,
+        "title": "Регулярная активность",
+        "description": "Добавить движение и тренировки в расписание."
+    },
+    {
+        "id": 3,
+        "title": "Снижение стресса",
+        "description": "Стабилизировать настроение и сохранять баланс."
+    }
+]
+
 
 def get_driver():
     global _driver
@@ -38,20 +56,32 @@ def upsert_user(user_id: int, username: str) -> None:
         )
 
 
-def link_user_goal(user_id: int, goal_id: int, title: str) -> None:
-    _ensure_schema()
+def link_user_goal(user_id: int, goal_id: int) -> None:
+    ensure_goal_catalog()
     driver = get_driver()
     with driver.session() as session:
         session.run(
             """
             MERGE (u:User {id: $user_id})
-            MERGE (g:Goal {id: $goal_id})
-            SET g.title = $title
+            MATCH (g:Goal {id: $goal_id, catalog: true})
             MERGE (u)-[:HAS_GOAL]->(g)
             """,
             user_id=user_id,
             goal_id=goal_id,
-            title=title,
+        )
+
+
+def unlink_user_goal(user_id: int, goal_id: int) -> None:
+    _ensure_schema()
+    driver = get_driver()
+    with driver.session() as session:
+        session.run(
+            """
+            MATCH (u:User {id: $user_id})-[r:HAS_GOAL]->(g:Goal {id: $goal_id})
+            DELETE r
+            """,
+            user_id=user_id,
+            goal_id=goal_id,
         )
 
 
@@ -125,3 +155,43 @@ def recommend_users(user_id: int, limit: int = 10) -> list[dict]:
             limit=limit,
         )
         return [dict(r) for r in result]
+
+
+def ensure_goal_catalog() -> None:
+    _ensure_schema()
+    driver = get_driver()
+    with driver.session() as session:
+        for goal in GOAL_CATALOG:
+            session.run(
+                """
+                MERGE (g:Goal {id: $id})
+                SET g.title = $title,
+                    g.description = $description,
+                    g.catalog = true
+                """,
+                id=goal["id"],
+                title=goal["title"],
+                description=goal.get("description"),
+            )
+
+
+def list_goal_catalog() -> list[dict]:
+    ensure_goal_catalog()
+    driver = get_driver()
+    with driver.session() as session:
+        result = session.run(
+            """
+            MATCH (g:Goal {catalog: true})
+            RETURN g.id AS id, g.title AS title, g.description AS description
+            ORDER BY g.id ASC
+            """
+        )
+        return [dict(r) for r in result]
+
+
+def clear_goal_graph() -> None:
+    _ensure_schema()
+    driver = get_driver()
+    with driver.session() as session:
+        session.run("MATCH ()-[r:HAS_GOAL]->() DELETE r")
+        session.run("MATCH (g:Goal) DETACH DELETE g")

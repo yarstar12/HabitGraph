@@ -18,7 +18,7 @@ def get_qdrant_client() -> QdrantClient:
     global _client
     if _client is None:
         host, port = settings.qdrant_connection()
-        _client = QdrantClient(host=host, port=port, check_compatibility=False)
+        _client = QdrantClient(host=host, port=port)
     return _client
 
 

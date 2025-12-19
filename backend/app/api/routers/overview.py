@@ -56,7 +56,7 @@ def get_overview(user: User = Depends(get_current_user), db: Session = Depends(g
 
     tips: list[str] = []
     if habits_count == 0:
-        tips.append("Создай первую привычку или цель.")
+        tips.append("Создай первую привычку или выбери цель из каталога.")
     if checkins_7d == 0 and habits_count > 0:
         tips.append("Отметь выполнение хотя бы одной привычки.")
     if diary_entries == 0:

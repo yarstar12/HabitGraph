@@ -6,43 +6,79 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.models import Goal, User
 from app.db.postgres import get_db
-from app.db.neo4j import link_user_goal
+from app.db.neo4j import link_user_goal, list_goal_catalog, unlink_user_goal
 from app.db.rabbitmq import publish_event
 
 router = APIRouter()
 
 
-class GoalCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=120)
-    description: str | None = Field(default=None, max_length=255)
+class GoalCatalogOut(BaseModel):
+    id: int
+    title: str
+    description: str | None = None
 
 
 class GoalOut(BaseModel):
     id: int
     user_id: int
+    catalog_id: int | None
     title: str
     description: str | None
     is_archived: bool
 
 
+class GoalSelect(BaseModel):
+    catalog_id: int = Field(gt=0)
+
+
 class GoalUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=120)
-    description: str | None = Field(default=None, max_length=255)
     is_archived: bool | None = None
 
 
+@router.get("/catalog", response_model=list[GoalCatalogOut])
+def get_catalog() -> list[dict]:
+    return list_goal_catalog()
+
+
 @router.post("", response_model=GoalOut)
-def create_goal(
-    payload: GoalCreate,
+def select_goal(
+    payload: GoalSelect,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Goal:
-    goal = Goal(user_id=user.id, title=payload.title, description=payload.description, is_archived=False)
+    catalog = {item["id"]: item for item in list_goal_catalog()}
+    item = catalog.get(payload.catalog_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Цель не найдена")
+
+    goal = db.scalar(
+        select(Goal).where(Goal.user_id == user.id, Goal.catalog_id == payload.catalog_id)
+    )
+    if goal:
+        if goal.is_archived:
+            goal.is_archived = False
+            goal.title = item["title"]
+            goal.description = item.get("description")
+            db.commit()
+            db.refresh(goal)
+        try:
+            link_user_goal(user_id=user.id, goal_id=payload.catalog_id)
+        except Exception:
+            pass
+        return goal
+
+    goal = Goal(
+        user_id=user.id,
+        catalog_id=payload.catalog_id,
+        title=item["title"],
+        description=item.get("description"),
+        is_archived=False,
+    )
     db.add(goal)
     db.commit()
     db.refresh(goal)
     try:
-        link_user_goal(user_id=user.id, goal_id=goal.id, title=goal.title)
+        link_user_goal(user_id=user.id, goal_id=payload.catalog_id)
     except Exception:
         pass
     try:
@@ -77,14 +113,18 @@ def update_goal(
     if goal is None:
         raise HTTPException(status_code=404, detail="Цель не найдена")
 
-    updates = payload.model_dump(exclude_unset=True)
-    for field, value in updates.items():
-        setattr(goal, field, value)
+    if payload.is_archived is None:
+        raise HTTPException(status_code=400, detail="Нет данных для обновления")
+
+    goal.is_archived = payload.is_archived
     db.commit()
     db.refresh(goal)
-    if "title" in updates:
+    if goal.catalog_id is not None:
         try:
-            link_user_goal(user_id=user.id, goal_id=goal.id, title=goal.title)
+            if payload.is_archived:
+                unlink_user_goal(user_id=user.id, goal_id=goal.catalog_id)
+            else:
+                link_user_goal(user_id=user.id, goal_id=goal.catalog_id)
         except Exception:
             pass
     return goal
