@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_user_id
-from app.db.models import Checkin, Habit
+from app.api.deps import get_current_user
+from app.db.models import Checkin, Habit, User
 from app.db.postgres import get_db
 from app.db.rabbitmq import publish_event
 from app.db.redis import compute_and_store_streak
@@ -30,16 +30,16 @@ class CheckinOut(BaseModel):
 @router.post("", response_model=CheckinOut)
 def create_checkin(
     payload: CheckinCreate,
-    user_id: int = Depends(get_user_id),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Checkin:
     date = payload.date or dt.date.today()
 
-    habit = db.scalar(select(Habit).where(Habit.id == payload.habit_id, Habit.user_id == user_id))
+    habit = db.scalar(select(Habit).where(Habit.id == payload.habit_id, Habit.user_id == user.id))
     if habit is None:
         raise HTTPException(status_code=404, detail="Привычка не найдена")
 
-    checkin = Checkin(user_id=user_id, habit_id=payload.habit_id, date=date)
+    checkin = Checkin(user_id=user.id, habit_id=payload.habit_id, date=date)
     db.add(checkin)
     try:
         db.commit()
@@ -49,13 +49,13 @@ def create_checkin(
 
     db.refresh(checkin)
     try:
-        compute_and_store_streak(db=db, user_id=user_id, habit_id=payload.habit_id, end_date=date)
+        compute_and_store_streak(db=db, user_id=user.id, habit_id=payload.habit_id, end_date=date)
     except Exception:
         pass
     try:
         publish_event(
             "habits.checkin.recorded",
-            {"user_id": user_id, "habit_id": payload.habit_id, "date": date.isoformat()},
+            {"user_id": user.id, "habit_id": payload.habit_id, "date": date.isoformat()},
         )
     except Exception:
         pass

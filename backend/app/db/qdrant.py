@@ -112,3 +112,13 @@ def vector_search_diary(user_id: int, text: str, limit: int = 5) -> list[dict]:
             continue
         out.append({"entry_id": entry_id, "score": float(h.score)})
     return out
+
+
+def delete_diary_entry(entry_id: str) -> None:
+    _ensure_collection()
+    client = get_qdrant_client()
+    client.delete(
+        collection_name=settings.effective_qdrant_collection(),
+        points_selector=qm.PointIdsList(points=[_point_id(entry_id)]),
+        wait=True,
+    )

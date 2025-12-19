@@ -88,6 +88,21 @@ def add_friend(user_id: int, friend_user_id: int) -> None:
         )
 
 
+def list_friends(user_id: int) -> list[dict]:
+    _ensure_schema()
+    driver = get_driver()
+    with driver.session() as session:
+        result = session.run(
+            """
+            MATCH (u:User {id: $user_id})-[:FRIEND]->(f:User)
+            RETURN f.id AS user_id, f.username AS username
+            ORDER BY f.username ASC, f.id ASC
+            """,
+            user_id=user_id,
+        )
+        return [dict(r) for r in result]
+
+
 def recommend_users(user_id: int, limit: int = 10) -> list[dict]:
     _ensure_schema()
     driver = get_driver()
