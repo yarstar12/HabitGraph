@@ -39,9 +39,16 @@ export type Habit = {
 export type Goal = {
   id: number;
   user_id: number;
+  catalog_id?: number | null;
   title: string;
   description?: string | null;
   is_archived: boolean;
+};
+
+export type GoalCatalogItem = {
+  id: number;
+  title: string;
+  description?: string | null;
 };
 
 export type TodayHabit = {
@@ -123,10 +130,11 @@ export const api = {
   },
 
   goals: {
+    catalog: (userId: number) => request<GoalCatalogItem[]>("/goals/catalog", userId),
     list: (userId: number, status: "active" | "archived" | "all" = "active") =>
       request<Goal[]>(`/goals?status=${status}`, userId),
-    create: (userId: number, payload: Partial<Goal>) =>
-      request<Goal>("/goals", userId, { method: "POST", body: JSON.stringify(payload) }),
+    select: (userId: number, catalog_id: number) =>
+      request<Goal>("/goals", userId, { method: "POST", body: JSON.stringify({ catalog_id }) }),
     update: (userId: number, goalId: number, payload: Partial<Goal>) =>
       request<Goal>(`/goals/${goalId}`, userId, { method: "PATCH", body: JSON.stringify(payload) })
   },
