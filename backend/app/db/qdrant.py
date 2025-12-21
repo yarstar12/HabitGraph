@@ -8,10 +8,12 @@ from qdrant_client.http import models as qm
 
 from app.core.settings import settings
 
-VECTOR_SIZE = 64
+DEFAULT_VECTOR_SIZE = 64
 
 _client: QdrantClient | None = None
 _collection_ready = False
+_collection_name: str | None = None
+_vector_size = DEFAULT_VECTOR_SIZE
 
 
 def get_qdrant_client() -> QdrantClient:
@@ -22,20 +24,45 @@ def get_qdrant_client() -> QdrantClient:
     return _client
 
 
+def _use_existing_collection(client: QdrantClient, name: str) -> bool:
+    global _collection_ready, _collection_name, _vector_size
+    try:
+        info = client.get_collection(name)
+    except Exception:
+        return False
+    vectors = info.config.params.vectors
+    size = getattr(vectors, "size", DEFAULT_VECTOR_SIZE)
+    _collection_name = name
+    _vector_size = int(size)
+    _collection_ready = True
+    return True
+
+
 def _ensure_collection() -> None:
-    global _collection_ready
+    global _collection_ready, _collection_name, _vector_size
     if _collection_ready:
         return
 
     client = get_qdrant_client()
-    existing = {c.name for c in client.get_collections().collections}
-    collection = settings.effective_qdrant_collection()
-    if collection not in existing:
+    primary = settings.effective_qdrant_collection()
+
+    if _use_existing_collection(client, primary):
+        return
+
+    try:
         client.create_collection(
-            collection_name=collection,
-            vectors_config=qm.VectorParams(size=VECTOR_SIZE, distance=qm.Distance.COSINE),
+            collection_name=primary,
+            vectors_config=qm.VectorParams(size=DEFAULT_VECTOR_SIZE, distance=qm.Distance.COSINE),
         )
-    _collection_ready = True
+        _collection_name = primary
+        _vector_size = DEFAULT_VECTOR_SIZE
+        _collection_ready = True
+        return
+    except Exception:
+        fallback = settings.fallback_qdrant_collection()
+        if fallback and _use_existing_collection(client, fallback):
+            return
+        raise
 
 
 def _point_id(entry_id: str) -> str:
@@ -43,7 +70,8 @@ def _point_id(entry_id: str) -> str:
 
 
 def embed_text(text: str) -> list[float]:
-    vec = [0.0] * VECTOR_SIZE
+    size = _vector_size or DEFAULT_VECTOR_SIZE
+    vec = [0.0] * size
     words = [w for w in "".join(ch if ch.isalnum() else " " for ch in text.lower()).split() if w]
     if not words:
         return vec
@@ -51,7 +79,7 @@ def embed_text(text: str) -> list[float]:
     for w in words:
         digest = hashlib.blake2b(w.encode("utf-8"), digest_size=8).digest()
         h = int.from_bytes(digest, "big", signed=False)
-        idx = h % VECTOR_SIZE
+        idx = h % size
         sign = 1.0 if (h >> 8) & 1 else -1.0
         vec[idx] += sign
 
@@ -78,7 +106,7 @@ def upsert_diary_entry(
         "created_at": created_at.isoformat(),
     }
     client.upsert(
-        collection_name=settings.effective_qdrant_collection(),
+        collection_name=_collection_name or settings.effective_qdrant_collection(),
         points=[
             qm.PointStruct(
                 id=_point_id(entry_id),
@@ -91,12 +119,15 @@ def upsert_diary_entry(
 
 
 def vector_search_diary(user_id: int, text: str, limit: int = 5) -> list[dict]:
-    _ensure_collection()
+    try:
+        _ensure_collection()
+    except Exception:
+        return []
     client = get_qdrant_client()
 
     query_vector = embed_text(text)
     hits = client.search(
-        collection_name=settings.effective_qdrant_collection(),
+        collection_name=_collection_name or settings.effective_qdrant_collection(),
         query_vector=query_vector,
         limit=limit,
         query_filter=qm.Filter(
@@ -118,7 +149,7 @@ def delete_diary_entry(entry_id: str) -> None:
     _ensure_collection()
     client = get_qdrant_client()
     client.delete(
-        collection_name=settings.effective_qdrant_collection(),
+        collection_name=_collection_name or settings.effective_qdrant_collection(),
         points_selector=qm.PointIdsList(points=[_point_id(entry_id)]),
         wait=True,
     )

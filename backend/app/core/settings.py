@@ -109,6 +109,11 @@ class Settings(BaseSettings):
         derived = self.default_student_db_name()
         return derived or self.qdrant_collection
 
+    def fallback_qdrant_collection(self) -> str | None:
+        if not self.student_name:
+            return None
+        return f"appdb_{self.student_name}"
+
     def neo4j_bolt_uri(self) -> str:
         if self.neo4j_uri:
             return self.neo4j_uri
